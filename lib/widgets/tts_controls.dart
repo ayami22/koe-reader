@@ -4,6 +4,7 @@ class TtsControls extends StatelessWidget {
   final bool isPlaying;
   final bool isConnected;
   final bool isSynthesizing;
+  final String? error;
   final VoidCallback onPlayPause;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
@@ -13,6 +14,7 @@ class TtsControls extends StatelessWidget {
     required this.isPlaying,
     required this.isConnected,
     required this.isSynthesizing,
+    this.error,
     required this.onPlayPause,
     required this.onPrevious,
     required this.onNext,
@@ -24,42 +26,47 @@ class TtsControls extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: colorScheme.surface.withAlpha(240),
+        color: colorScheme.surface.withAlpha(245),
         border: Border(
           top: BorderSide(color: colorScheme.outlineVariant, width: 0.5),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           if (!isConnected)
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                'TTS未接続 — 設定からサーバーを接続してください',
+                error ?? 'TTS未接続 — 設定からサーバーを接続してください',
                 style: TextStyle(color: colorScheme.error, fontSize: 13),
                 textAlign: TextAlign.center,
               ),
-            )
-          else ...[
-            IconButton(
-              icon: const Icon(Icons.skip_previous_rounded),
-              iconSize: 32,
-              onPressed: onPrevious,
             ),
-            const SizedBox(width: 16),
-            _PlayButton(
-              isPlaying: isPlaying,
-              isSynthesizing: isSynthesizing,
-              onPressed: onPlayPause,
-            ),
-            const SizedBox(width: 16),
-            IconButton(
-              icon: const Icon(Icons.skip_next_rounded),
-              iconSize: 32,
-              onPressed: onNext,
-            ),
-          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.skip_previous_rounded),
+                iconSize: 32,
+                onPressed: onPrevious,
+              ),
+              const SizedBox(width: 16),
+              _PlayButton(
+                isPlaying: isPlaying,
+                isSynthesizing: isSynthesizing,
+                enabled: isConnected,
+                onPressed: onPlayPause,
+              ),
+              const SizedBox(width: 16),
+              IconButton(
+                icon: const Icon(Icons.skip_next_rounded),
+                iconSize: 32,
+                onPressed: onNext,
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -69,11 +76,13 @@ class TtsControls extends StatelessWidget {
 class _PlayButton extends StatelessWidget {
   final bool isPlaying;
   final bool isSynthesizing;
+  final bool enabled;
   final VoidCallback onPressed;
 
   const _PlayButton({
     required this.isPlaying,
     required this.isSynthesizing,
+    required this.enabled,
     required this.onPressed,
   });
 
@@ -97,7 +106,7 @@ class _PlayButton extends StatelessWidget {
     }
 
     return FilledButton(
-      onPressed: onPressed,
+      onPressed: enabled ? onPressed : null,
       style: FilledButton.styleFrom(
         shape: const CircleBorder(),
         padding: const EdgeInsets.all(16),

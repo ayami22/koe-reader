@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-enum BookFormat { epub, pdf, txt }
+enum BookFormat { epub, pdf, txt, asset }
 
 class Book {
   final String id;
@@ -10,6 +10,7 @@ class Book {
   final BookFormat format;
   final Uint8List? coverImage;
   final DateTime addedAt;
+  final bool isSample;
   double readingProgress;
   int lastChapterIndex;
   int lastPosition;
@@ -22,6 +23,7 @@ class Book {
     required this.format,
     this.coverImage,
     DateTime? addedAt,
+    this.isSample = false,
     this.readingProgress = 0.0,
     this.lastChapterIndex = 0,
     this.lastPosition = 0,
@@ -33,8 +35,8 @@ class Book {
         'author': author,
         'filePath': filePath,
         'format': format.name,
-        'coverImage': coverImage,
         'addedAt': addedAt.toIso8601String(),
+        'isSample': isSample,
         'readingProgress': readingProgress,
         'lastChapterIndex': lastChapterIndex,
         'lastPosition': lastPosition,
@@ -46,9 +48,9 @@ class Book {
         author: map['author'] as String?,
         filePath: map['filePath'] as String,
         format: BookFormat.values.byName(map['format'] as String),
-        coverImage: map['coverImage'] as Uint8List?,
         addedAt: DateTime.parse(map['addedAt'] as String),
-        readingProgress: (map['readingProgress'] as num).toDouble(),
+        isSample: map['isSample'] as bool? ?? false,
+        readingProgress: (map['readingProgress'] as num?)?.toDouble() ?? 0.0,
         lastChapterIndex: map['lastChapterIndex'] as int? ?? 0,
         lastPosition: map['lastPosition'] as int? ?? 0,
       );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/book.dart';
 import '../models/chapter.dart';
+import '../providers/library_provider.dart';
 import '../providers/reader_provider.dart';
 import '../providers/tts_provider.dart';
 import '../providers/settings_provider.dart';
@@ -25,72 +26,88 @@ class _ReaderScreenState extends State<ReaderScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ReaderProvider>().openBook(widget.book);
-      _connectTts();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final reader = context.read<ReaderProvider>();
+      final settings = context.read<SettingsProvider>();
+      final tts = context.read<TtsProvider>();
+      tts.updateVoiceSettings(
+        speakerId: settings.activeVoiceId,
+        speed: settings.ttsSpeed,
+      );
+      await reader.openBook(widget.book);
+      await tts.connect(settings.cosyVoiceUrl);
+      tts.setOnSentenceFinished(_onSentenceFinished);
     });
   }
 
-  Future<void> _connectTts() async {
-    final settings = context.read<SettingsProvider>();
-    final tts = context.read<TtsProvider>();
-    await tts.connect(settings.cosyVoiceUrl);
-    tts.setOnSentenceFinished(_onSentenceFinished);
+  void _persistProgress() {
+    final reader = context.read<ReaderProvider>();
+    context.read<LibraryProvider>().updateProgress(
+          widget.book.id,
+          reader.progress,
+          reader.currentChapterIndex,
+          reader.currentSentenceIndex,
+        );
   }
 
   void _onSentenceFinished() {
-    if (!_autoPlay) return;
+    if (!_autoPlay || !mounted) return;
     final reader = context.read<ReaderProvider>();
     final tts = context.read<TtsProvider>();
+    final moved = reader.nextSentence();
+    _persistProgress();
+    if (!moved) {
+      setState(() => _autoPlay = false);
+      return;
+    }
+    final sentence = reader.currentSentence;
+    if (sentence == null) {
+      setState(() => _autoPlay = false);
+      return;
+    }
+    tts.speakSentence(sentence, reader.currentSentenceIndex);
+    _scrollToSentence(reader.currentSentenceIndex);
     final chapter = reader.currentChapter;
-    if (chapter == null) return;
-
-    final nextIndex = reader.currentSentenceIndex + 1;
-    if (nextIndex < chapter.sentences.length) {
-      reader.nextSentence();
-      tts.speakSentence(chapter.sentences[nextIndex], nextIndex);
-      _scrollToSentence(nextIndex);
-    } else if (reader.currentChapterIndex < reader.chapters.length - 1) {
-      reader.goToChapter(reader.currentChapterIndex + 1);
-      final newChapter = reader.currentChapter;
-      if (newChapter != null && newChapter.sentences.isNotEmpty) {
-        tts.speakSentence(newChapter.sentences[0], 0);
-        _scrollToSentence(0);
-      }
-    } else {
-      _autoPlay = false;
-      setState(() {});
+    if (chapter != null &&
+        reader.currentSentenceIndex + 1 < chapter.sentences.length) {
+      tts.prefetch(chapter.sentences[reader.currentSentenceIndex + 1].text);
     }
   }
 
   void _scrollToSentence(int index) {
-    const itemHeight = 60.0;
-    final targetOffset = index * itemHeight;
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        targetOffset,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      (index * 72.0).clamp(0, _scrollController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeInOut,
+    );
   }
 
-  void _toggleAutoPlay() {
+  Future<void> _toggleAutoPlay() async {
     final reader = context.read<ReaderProvider>();
     final tts = context.read<TtsProvider>();
-    final chapter = reader.currentChapter;
-    if (chapter == null || chapter.sentences.isEmpty) return;
-
-    setState(() {
-      _autoPlay = !_autoPlay;
-    });
+    final sentence = reader.currentSentence;
+    if (sentence == null) return;
 
     if (_autoPlay) {
-      final index = reader.currentSentenceIndex;
-      tts.speakSentence(chapter.sentences[index], index);
-    } else {
-      tts.stop();
+      setState(() => _autoPlay = false);
+      await tts.stop();
+      return;
     }
+
+    setState(() => _autoPlay = true);
+    await tts.speakSentence(sentence, reader.currentSentenceIndex);
+  }
+
+  void _skip(int delta) {
+    final reader = context.read<ReaderProvider>();
+    final tts = context.read<TtsProvider>();
+    final moved = delta < 0 ? reader.previousSentence() : reader.nextSentence();
+    _persistProgress();
+    if (!moved || !_autoPlay) return;
+    final sentence = reader.currentSentence;
+    if (sentence == null) return;
+    tts.speakSentence(sentence, reader.currentSentenceIndex);
   }
 
   @override
@@ -109,22 +126,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
             children: [
               if (reader.isLoading)
                 const Center(child: CircularProgressIndicator())
+              else if (reader.error != null)
+                Center(child: Text(reader.error!))
               else if (chapter == null)
                 const Center(child: Text('本を読み込めませんでした'))
               else
                 Column(
                   children: [
+                    LinearProgressIndicator(value: reader.progress),
                     Expanded(
                       child: ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 16,
-                        ),
+                        padding: const EdgeInsets.fromLTRB(24, 56, 24, 96),
                         itemCount: chapter.sentences.length,
                         itemBuilder: (context, index) {
                           final sentence = chapter.sentences[index];
-                          final isActive = tts.playingSentenceIndex == index;
+                          final isActive =
+                              tts.playingSentenceIndex == index ||
+                                  reader.currentSentenceIndex == index;
                           return SentenceView(
                             sentence: sentence,
                             isActive: isActive,
@@ -133,6 +152,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                             lineHeight: settings.lineHeight,
                             onTap: () {
                               reader.goToSentence(index);
+                              _persistProgress();
                               tts.speakSentence(sentence, index);
                             },
                           );
@@ -142,7 +162,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   ],
                 ),
               if (_showControls) ...[
-                _buildTopBar(context, reader, chapter),
+                _buildTopBar(context, chapter),
                 _buildBottomBar(context, tts),
               ],
             ],
@@ -152,28 +172,22 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  Widget _buildTopBar(BuildContext context, ReaderProvider reader, Chapter? chapter) {
+  Widget _buildTopBar(BuildContext context, Chapter? chapter) {
     return Positioned(
       top: 0,
       left: 0,
       right: 0,
       child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Theme.of(context).colorScheme.surface,
-              Theme.of(context).colorScheme.surface.withAlpha(0),
-            ],
-          ),
-        ),
+        color: Theme.of(context).colorScheme.surface.withAlpha(230),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Row(
           children: [
             IconButton(
               icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                _persistProgress();
+                Navigator.pop(context);
+              },
             ),
             Expanded(
               child: Text(
@@ -183,9 +197,11 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 style: Theme.of(context).textTheme.titleSmall,
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.list),
-              onPressed: () => Scaffold.of(context).openEndDrawer(),
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: const Icon(Icons.list),
+                onPressed: () => Scaffold.of(ctx).openEndDrawer(),
+              ),
             ),
           ],
         ),
@@ -202,13 +218,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
         isPlaying: _autoPlay,
         isConnected: tts.isConnected,
         isSynthesizing: tts.isSynthesizing,
+        error: tts.lastError,
         onPlayPause: _toggleAutoPlay,
-        onPrevious: () {
-          context.read<ReaderProvider>().previousSentence();
-        },
-        onNext: () {
-          context.read<ReaderProvider>().nextSentence();
-        },
+        onPrevious: () => _skip(-1),
+        onNext: () => _skip(1),
       ),
     );
   }

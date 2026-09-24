@@ -24,13 +24,7 @@ dependencies:
   # EPUB parsing
   epubx: ^4.0.0
 
-  # PDF rendering
-  pdfrx: ^1.0.82
-
-  # HTML rendering (for EPUB content)
-  flutter_html: ^3.0.0-beta.2
-
-  # HTTP client (for CosyVoice API)
+  # HTTP client (TTS API)
   dio: ^5.7.0
 
   # Audio playback
@@ -38,14 +32,9 @@ dependencies:
 
   # Local storage
   shared_preferences: ^2.3.4
-  sqflite: ^2.4.1
-
-  # Japanese text processing
-  ruby_text: ^3.0.3
 
   # UI
   google_fonts: ^6.2.1
-  flutter_slidable: ^3.1.1
 
   # Utilities
   collection: ^1.19.0
@@ -59,3 +48,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/books/
+    - assets/dict/

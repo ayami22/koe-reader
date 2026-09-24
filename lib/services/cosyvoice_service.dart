@@ -1,6 +1,26 @@
-import 'dart:async';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
+
+class TtsSpeaker {
+  final String id;
+  final String name;
+  final String engine;
+  final String locale;
+
+  const TtsSpeaker({
+    required this.id,
+    required this.name,
+    this.engine = 'edge',
+    this.locale = 'ja-JP',
+  });
+
+  factory TtsSpeaker.fromMap(Map<String, dynamic> map) => TtsSpeaker(
+        id: map['id'] as String? ?? 'default',
+        name: map['name'] as String? ?? 'Default',
+        engine: map['engine'] as String? ?? 'edge',
+        locale: map['locale'] as String? ?? 'ja-JP',
+      );
+}
 
 class CosyVoiceService {
   final Dio _dio;
@@ -10,8 +30,8 @@ class CosyVoiceService {
   String? _referenceAudioPath;
 
   CosyVoiceService({
-    String baseUrl = 'http://localhost:50000',
-    String speakerId = 'default',
+    String baseUrl = 'http://127.0.0.1:50000',
+    String speakerId = 'ja-JP-NanamiNeural',
     double speed = 1.0,
     String? referenceAudioPath,
   })  : _baseUrl = baseUrl,
@@ -19,13 +39,17 @@ class CosyVoiceService {
         _speed = speed,
         _referenceAudioPath = referenceAudioPath,
         _dio = Dio(BaseOptions(
-          connectTimeout: const Duration(seconds: 10),
-          receiveTimeout: const Duration(seconds: 30),
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 60),
         ));
 
-  set baseUrl(String url) => _baseUrl = url;
-  set speakerId(String id) => _speakerId = id;
-  set speed(double s) => _speed = s;
+  String get baseUrl => _baseUrl;
+  String get speakerId => _speakerId;
+  double get speed => _speed;
+
+  set baseUrl(String url) => _baseUrl = url.replaceAll(RegExp(r'/$'), '');
+  void setSpeaker(String id) => _speakerId = id;
+  void setSpeed(double s) => _speed = s;
   set referenceAudioPath(String? path) => _referenceAudioPath = path;
 
   Future<Uint8List> synthesize(String text) async {
@@ -35,38 +59,21 @@ class CosyVoiceService {
         'text': text,
         'speaker_id': _speakerId,
         'speed': _speed,
-        'mode': _referenceAudioPath != null ? 'zero_shot' : 'sft',
-        if (_referenceAudioPath != null)
-          'reference_audio': _referenceAudioPath,
+        if (_referenceAudioPath != null) 'reference_audio': _referenceAudioPath,
       },
       options: Options(responseType: ResponseType.bytes),
     );
     return Uint8List.fromList(response.data!);
   }
 
-  Stream<Uint8List> synthesizeStream(String text) async* {
-    final response = await _dio.post<ResponseBody>(
-      '$_baseUrl/api/tts/stream',
-      data: {
-        'text': text,
-        'speaker_id': _speakerId,
-        'speed': _speed,
-        'mode': _referenceAudioPath != null ? 'zero_shot' : 'sft',
-        if (_referenceAudioPath != null)
-          'reference_audio': _referenceAudioPath,
-      },
-      options: Options(responseType: ResponseType.stream),
-    );
-    await for (final chunk in response.data!.stream) {
-      yield Uint8List.fromList(chunk);
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> listSpeakers() async {
-    final response = await _dio.get<List<dynamic>>(
-      '$_baseUrl/api/speakers',
-    );
-    return response.data!.cast<Map<String, dynamic>>();
+  Future<List<TtsSpeaker>> listSpeakers() async {
+    final response = await _dio.get<dynamic>('$_baseUrl/api/speakers');
+    final data = response.data;
+    final list = data is Map ? data['speakers'] : data;
+    if (list is! List) return const [];
+    return list
+        .map((e) => TtsSpeaker.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   Future<bool> healthCheck() async {
@@ -76,6 +83,21 @@ class CosyVoiceService {
     } catch (_) {
       return false;
     }
+  }
+
+  Future<TtsSpeaker?> cloneVoice(String name, String wavPath) async {
+    final filename = wavPath.replaceAll('\\', '/').split('/').last;
+    final form = FormData.fromMap({
+      'name': name,
+      'file': await MultipartFile.fromFile(wavPath, filename: filename),
+    });
+    final response = await _dio.post<Map<String, dynamic>>(
+      '$_baseUrl/api/clone',
+      data: form,
+    );
+    final data = response.data;
+    if (data == null) return null;
+    return TtsSpeaker.fromMap(data);
   }
 
   void dispose() {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/library_provider.dart';
 import '../models/book.dart';
+import '../providers/library_provider.dart';
 import 'reader_screen.dart';
 import 'settings_screen.dart';
 
@@ -25,9 +25,11 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: library.books.isEmpty
-          ? const _EmptyLibrary()
-          : _BookGrid(books: library.books),
+      body: library.isLoading && !library.initialized
+          ? const Center(child: CircularProgressIndicator())
+          : library.books.isEmpty
+              ? const _EmptyLibrary()
+              : _BookGrid(books: library.books),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _importBook(context),
         icon: const Icon(Icons.add),
@@ -171,6 +173,7 @@ class _BookCard extends StatelessWidget {
       case BookFormat.pdf:
         return Icons.picture_as_pdf;
       case BookFormat.txt:
+      case BookFormat.asset:
         return Icons.description;
     }
   }
@@ -182,14 +185,20 @@ class _BookCard extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('削除'),
-              onTap: () {
-                context.read<LibraryProvider>().removeBook(book.id);
-                Navigator.pop(ctx);
-              },
-            ),
+            if (!book.isSample)
+              ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('削除'),
+                onTap: () {
+                  context.read<LibraryProvider>().removeBook(book.id);
+                  Navigator.pop(ctx);
+                },
+              )
+            else
+              const ListTile(
+                leading: Icon(Icons.info_outline),
+                title: Text('サンプル書籍'),
+              ),
           ],
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/tts_provider.dart';
+import 'voices_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -38,12 +39,12 @@ class SettingsScreen extends StatelessWidget {
             title: const Text('ふりがな表示'),
             subtitle: const Text('漢字にふりがなを表示します'),
             value: settings.showFurigana,
-            onChanged: (v) => settings.setShowFurigana(v),
+            onChanged: settings.setShowFurigana,
           ),
           const Divider(),
           const _SectionHeader(title: '音声設定'),
           ListTile(
-            title: const Text('CosyVoice サーバー'),
+            title: const Text('TTS サーバー'),
             subtitle: Text(settings.cosyVoiceUrl),
             trailing: const Icon(Icons.edit),
             onTap: () => _editServerUrl(context, settings),
@@ -62,7 +63,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           ListTile(
             title: const Text('接続テスト'),
-            trailing: _ConnectionStatus(),
+            trailing: const _ConnectionStatus(),
             onTap: () => _testConnection(context),
           ),
           const Divider(),
@@ -70,18 +71,22 @@ class SettingsScreen extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.record_voice_over),
             title: const Text('音声を管理'),
-            subtitle: const Text('カスタム音声の追加・編集'),
+            subtitle: const Text('話者の切替とカスタム音声'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              // Voice profile management screen (to be implemented)
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const VoicesScreen()),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _editServerUrl(BuildContext context, SettingsProvider settings) async {
+  Future<void> _editServerUrl(
+    BuildContext context,
+    SettingsProvider settings,
+  ) async {
     final controller = TextEditingController(text: settings.cosyVoiceUrl);
     final result = await showDialog<String>(
       context: context,
@@ -90,7 +95,7 @@ class SettingsScreen extends StatelessWidget {
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(
-            hintText: 'http://localhost:50000',
+            hintText: 'http://127.0.0.1:50000',
             border: OutlineInputBorder(),
           ),
           keyboardType: TextInputType.url,
@@ -116,13 +121,10 @@ class SettingsScreen extends StatelessWidget {
     final tts = context.read<TtsProvider>();
     final settings = context.read<SettingsProvider>();
     await tts.connect(settings.cosyVoiceUrl);
-
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          tts.isConnected ? '接続成功' : '接続失敗：サーバーに接続できません',
-        ),
+        content: Text(tts.isConnected ? '接続成功' : '接続失敗：サーバーに接続できません'),
       ),
     );
   }
@@ -198,12 +200,14 @@ class _SliderTile extends StatelessWidget {
         label: label,
         onChanged: onChanged,
       ),
-      trailing: Text(label),
+      trailing: SizedBox(width: 48, child: Text(label, textAlign: TextAlign.end)),
     );
   }
 }
 
 class _ConnectionStatus extends StatelessWidget {
+  const _ConnectionStatus();
+
   @override
   Widget build(BuildContext context) {
     final tts = context.watch<TtsProvider>();

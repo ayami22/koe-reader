@@ -6,7 +6,6 @@ build/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-pubspec.lock
 
 # IDE
 .idea/
@@ -40,9 +39,6 @@ windows/flutter/ephemeral/
 
 # Linux
 linux/flutter/ephemeral/
-
-# Web
-web/favicon.png
 
 # Env
 .env

@@ -8,9 +8,9 @@ class SettingsProvider extends ChangeNotifier {
   double _fontSize = 18.0;
   double _lineHeight = 1.8;
   bool _showFurigana = true;
-  String _cosyVoiceUrl = 'http://localhost:50000';
+  String _cosyVoiceUrl = 'http://127.0.0.1:50000';
   double _ttsSpeed = 1.0;
-  String _activeVoiceId = 'default';
+  String _activeVoiceId = 'ja-JP-NanamiNeural';
 
   ThemeMode get themeMode => _themeMode;
   double get fontSize => _fontSize;
@@ -26,9 +26,13 @@ class SettingsProvider extends ChangeNotifier {
     _fontSize = _prefs.getDouble('fontSize') ?? 18.0;
     _lineHeight = _prefs.getDouble('lineHeight') ?? 1.8;
     _showFurigana = _prefs.getBool('showFurigana') ?? true;
-    _cosyVoiceUrl = _prefs.getString('cosyVoiceUrl') ?? 'http://localhost:50000';
+    _cosyVoiceUrl =
+        _prefs.getString('cosyVoiceUrl') ?? 'http://127.0.0.1:50000';
     _ttsSpeed = _prefs.getDouble('ttsSpeed') ?? 1.0;
-    _activeVoiceId = _prefs.getString('activeVoiceId') ?? 'default';
+    final storedVoice = _prefs.getString('activeVoiceId');
+    _activeVoiceId = (storedVoice == null || storedVoice == 'default')
+        ? 'ja-JP-NanamiNeural'
+        : storedVoice;
     notifyListeners();
   }
 
