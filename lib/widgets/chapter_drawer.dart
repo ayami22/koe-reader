@@ -3,7 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/reader_provider.dart';
 
 class ChapterDrawer extends StatelessWidget {
-  const ChapterDrawer({super.key});
+  final VoidCallback? onChapterSelected;
+  const ChapterDrawer({super.key, this.onChapterSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +51,7 @@ class ChapterDrawer extends StatelessWidget {
                           ),
                           onTap: () {
                             reader.goToChapter(index);
+                            onChapterSelected?.call();
                             Navigator.pop(context);
                           },
                         );

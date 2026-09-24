@@ -46,7 +46,8 @@ class FuriganaService {
             text: s.text,
             startOffset: s.startOffset,
             endOffset: s.endOffset,
-            furiganaSegments: annotate(s.text),
+            furiganaSegments: s.isIllustration ? const [] : annotate(s.text),
+            imageBytes: s.imageBytes,
           ),
         )
         .toList();

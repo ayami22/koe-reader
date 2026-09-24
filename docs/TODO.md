@@ -35,6 +35,12 @@ Status: pending | in_progress | done | blocked
 - [done] Noto Sans JP
 - [done] Empty / error / disconnected
 - [done] Sample book
+- [done] Robust EPUB ZIP (EOCD junk / leading junk)
+- [done] EPUB illustrations
+- [done] Furigana baseline alignment
+- [done] Horizontal swipe paging
+- [done] Copy imported files into app storage
+- [done] Cover / author / search / brightness / keep-awake
 
 ## Quality
 - [done] Tests (18 passing)

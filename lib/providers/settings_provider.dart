@@ -11,6 +11,8 @@ class SettingsProvider extends ChangeNotifier {
   String _cosyVoiceUrl = 'http://127.0.0.1:50000';
   double _ttsSpeed = 1.0;
   String _activeVoiceId = 'ja-JP-NanamiNeural';
+  double _brightness = 1.0;
+  bool _keepScreenOn = true;
 
   ThemeMode get themeMode => _themeMode;
   double get fontSize => _fontSize;
@@ -19,6 +21,8 @@ class SettingsProvider extends ChangeNotifier {
   String get cosyVoiceUrl => _cosyVoiceUrl;
   double get ttsSpeed => _ttsSpeed;
   String get activeVoiceId => _activeVoiceId;
+  double get brightness => _brightness;
+  bool get keepScreenOn => _keepScreenOn;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -33,6 +37,8 @@ class SettingsProvider extends ChangeNotifier {
     _activeVoiceId = (storedVoice == null || storedVoice == 'default')
         ? 'ja-JP-NanamiNeural'
         : storedVoice;
+    _brightness = _prefs.getDouble('brightness') ?? 1.0;
+    _keepScreenOn = _prefs.getBool('keepScreenOn') ?? true;
     notifyListeners();
   }
 
@@ -75,6 +81,18 @@ class SettingsProvider extends ChangeNotifier {
   Future<void> setActiveVoiceId(String id) async {
     _activeVoiceId = id;
     await _prefs.setString('activeVoiceId', id);
+    notifyListeners();
+  }
+
+  Future<void> setBrightness(double value) async {
+    _brightness = value.clamp(0.35, 1.0);
+    await _prefs.setDouble('brightness', _brightness);
+    notifyListeners();
+  }
+
+  Future<void> setKeepScreenOn(bool value) async {
+    _keepScreenOn = value;
+    await _prefs.setBool('keepScreenOn', value);
     notifyListeners();
   }
 }

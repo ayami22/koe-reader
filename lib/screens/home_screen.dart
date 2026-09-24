@@ -41,10 +41,15 @@ class HomeScreen extends StatelessWidget {
   Future<void> _importBook(BuildContext context) async {
     final library = context.read<LibraryProvider>();
     final book = await library.importBook();
-    if (book != null && context.mounted) {
+    if (!context.mounted) return;
+    if (book != null) {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => ReaderScreen(book: book)),
+      );
+    } else if (library.lastError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(library.lastError!)),
       );
     }
   }
@@ -153,6 +158,15 @@ class _BookCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          if (book.author != null && book.author!.isNotEmpty)
+            Text(
+              book.author!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+            ),
           if (book.readingProgress > 0)
             Padding(
               padding: const EdgeInsets.only(top: 4),

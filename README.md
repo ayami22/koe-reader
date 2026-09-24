@@ -28,6 +28,8 @@ flutter run -d windows
 
 First launch includes the sample book **桜の午後**. Import EPUB / TXT / PDF from the FAB. Open **設定** to connect TTS (`http://127.0.0.1:50000`) and toggle furigana.
 
+Imported files are copied into app storage. EPUB novels keep illustrations, furigana sits above kanji on the same baseline, and left/right swipe turns pages.
+
 ## Layout
 
 ```

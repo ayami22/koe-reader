@@ -41,6 +41,21 @@ class SettingsScreen extends StatelessWidget {
             value: settings.showFurigana,
             onChanged: settings.setShowFurigana,
           ),
+          SwitchListTile(
+            title: const Text('画面をスリープしない'),
+            subtitle: const Text('読書中は画面を点灯したままにします'),
+            value: settings.keepScreenOn,
+            onChanged: settings.setKeepScreenOn,
+          ),
+          _SliderTile(
+            title: '明るさ',
+            value: settings.brightness,
+            min: 0.35,
+            max: 1.0,
+            divisions: 13,
+            label: '${(settings.brightness * 100).round()}%',
+            onChanged: settings.setBrightness,
+          ),
           const Divider(),
           const _SectionHeader(title: '音声設定'),
           ListTile(

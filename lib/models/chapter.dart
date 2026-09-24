@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 class Chapter {
   final int index;
   final String title;
@@ -18,6 +20,7 @@ class Sentence {
   final int startOffset;
   final int endOffset;
   final List<FuriganaSegment> furiganaSegments;
+  final Uint8List? imageBytes;
 
   Sentence({
     required this.index,
@@ -25,7 +28,11 @@ class Sentence {
     required this.startOffset,
     required this.endOffset,
     List<FuriganaSegment>? furiganaSegments,
+    this.imageBytes,
   }) : furiganaSegments = furiganaSegments ?? [];
+
+  bool get isIllustration => imageBytes != null && imageBytes!.isNotEmpty;
+  bool get isSpeakable => !isIllustration && text.trim().isNotEmpty;
 }
 
 class FuriganaSegment {

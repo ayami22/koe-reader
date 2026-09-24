@@ -1,7 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:epubx/epubx.dart';
+import 'dart:typed_data';
 import '../models/chapter.dart';
+import 'epub_parser.dart';
+
+class HtmlBlock {
+  final String? text;
+  final Uint8List? image;
+
+  const HtmlBlock.text(this.text) : image = null;
+  const HtmlBlock.image(this.image) : text = null;
+
+  bool get isImage => image != null && image!.isNotEmpty;
+}
 
 class BookParser {
   Future<List<Chapter>> parseEpub(String filePath) async {
@@ -9,38 +20,11 @@ class BookParser {
   }
 
   Future<List<Chapter>> parseEpubBytes(List<int> bytes) async {
-    final book = await EpubReader.readBook(bytes);
-    final chapters = <Chapter>[];
-    _collectChapters(book.Chapters ?? [], chapters);
-    if (chapters.isEmpty) {
-      chapters.add(Chapter(
-        index: 0,
-        title: book.Title ?? '本文',
-        content: '',
-        sentences: const [],
-      ));
-    }
-    return chapters;
+    return parseEpubDocument(bytes).chapters;
   }
 
-  void _collectChapters(List<EpubChapter> source, List<Chapter> out) {
-    for (final epubChapter in source) {
-      final plainText = stripHtml(epubChapter.HtmlContent ?? '');
-      if (plainText.isNotEmpty) {
-        out.add(Chapter(
-          index: out.length,
-          title: (epubChapter.Title?.trim().isNotEmpty ?? false)
-              ? epubChapter.Title!.trim()
-              : '第${out.length + 1}章',
-          content: plainText,
-          sentences: splitSentences(plainText),
-        ));
-      }
-      final nested = epubChapter.SubChapters;
-      if (nested != null && nested.isNotEmpty) {
-        _collectChapters(nested, out);
-      }
-    }
+  EpubParseResult parseEpubDocument(List<int> bytes) {
+    return EpubParser(this).parse(bytes);
   }
 
   Future<List<Chapter>> parseTxt(String filePath) async {
@@ -57,7 +41,7 @@ class BookParser {
         bytes[0] == 0xEF &&
         bytes[1] == 0xBB &&
         bytes[2] == 0xBF) {
-      return utf8.decode(bytes.sublist(3));
+      return utf8.decode(bytes.sublist(3), allowMalformed: true);
     }
     try {
       return utf8.decode(bytes);
@@ -153,6 +137,126 @@ class BookParser {
     return buffer.toString();
   }
 
+  List<HtmlBlock> parseHtmlDocument(
+    String html, {
+    Uint8List? Function(String src)? resolveImage,
+  }) {
+    var cleaned = html
+        .replaceAll(
+          RegExp(r'<script[^>]*>[\s\S]*?</script>', caseSensitive: false),
+          '',
+        )
+        .replaceAll(
+          RegExp(r'<style[^>]*>[\s\S]*?</style>', caseSensitive: false),
+          '',
+        )
+        .replaceAll(
+          RegExp(r'<head[^>]*>[\s\S]*?</head>', caseSensitive: false),
+          '',
+        );
+
+    final blocks = <HtmlBlock>[];
+    final tokenRe = RegExp(
+      r'<img\b[^>]*>|<svg\b[\s\S]*?</svg>|<br\s*/?>|</p>|</div>|</h[1-6]>|</li>|</tr>|</blockquote>',
+      caseSensitive: false,
+    );
+    var cursor = 0;
+    final textBuf = StringBuffer();
+
+    void flushText() {
+      final text = decodeEntities(textBuf.toString())
+          .replaceAll(RegExp(r'[ \t]+\n'), '\n')
+          .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+          .trim();
+      textBuf.clear();
+      if (text.isEmpty) return;
+      blocks.add(HtmlBlock.text(text));
+    }
+
+    void appendHtmlChunk(String chunk) {
+      var text = chunk
+          .replaceAll(RegExp(r'<rt\b[^>]*>[\s\S]*?</rt>', caseSensitive: false), '')
+          .replaceAll(RegExp(r'<rp\b[^>]*>[\s\S]*?</rp>', caseSensitive: false), '')
+          .replaceAll(RegExp(r'<[^>]+>'), '');
+      textBuf.write(text);
+    }
+
+    for (final match in tokenRe.allMatches(cleaned)) {
+      appendHtmlChunk(cleaned.substring(cursor, match.start));
+      final token = match.group(0)!;
+      final lower = token.toLowerCase();
+      if (lower.startsWith('<img')) {
+        flushText();
+        final src = _imgSrc(token);
+        final image = src == null ? null : resolveImage?.call(src);
+        if (image != null) {
+          blocks.add(HtmlBlock.image(image));
+        }
+      } else if (lower.startsWith('<svg')) {
+        flushText();
+      } else {
+        textBuf.write('\n');
+      }
+      cursor = match.end;
+    }
+    appendHtmlChunk(cleaned.substring(cursor));
+    flushText();
+    return blocks;
+  }
+
+  Chapter chapterFromBlocks({
+    required int index,
+    required String title,
+    required List<HtmlBlock> blocks,
+  }) {
+    final sentences = <Sentence>[];
+    final content = StringBuffer();
+    for (final block in blocks) {
+      if (block.isImage) {
+        sentences.add(Sentence(
+          index: sentences.length,
+          text: '',
+          startOffset: 0,
+          endOffset: 0,
+          imageBytes: block.image,
+        ));
+        continue;
+      }
+      final text = block.text ?? '';
+      if (content.isNotEmpty) content.write('\n');
+      content.write(text);
+      for (final sentence in splitSentences(text)) {
+        sentences.add(Sentence(
+          index: sentences.length,
+          text: sentence.text,
+          startOffset: sentence.startOffset,
+          endOffset: sentence.endOffset,
+        ));
+      }
+    }
+    if (sentences.isEmpty) {
+      sentences.addAll(splitSentences(content.toString()));
+    }
+    return Chapter(
+      index: index,
+      title: title,
+      content: content.toString(),
+      sentences: sentences,
+    );
+  }
+
+  String? _imgSrc(String tag) {
+    final match = RegExp(
+          r'''(?:src|xlink:href)\s*=\s*["']([^"']+)["']''',
+          caseSensitive: false,
+        ).firstMatch(tag) ??
+        RegExp(
+          r'src\s*=\s*([^\s>]+)',
+          caseSensitive: false,
+        ).firstMatch(tag);
+    return match?.group(1);
+  }
+
   List<Sentence> splitSentences(String text) {
     final sentences = <Sentence>[];
     final pattern = RegExp(
@@ -184,6 +288,26 @@ class BookParser {
     ).hasMatch(line);
   }
 
+  String decodeEntities(String text) {
+    var out = text
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&apos;', "'")
+        .replaceAll('&#39;', "'");
+    out = out.replaceAllMapped(RegExp(r'&#(\d+);'), (m) {
+      final code = int.tryParse(m.group(1)!);
+      return code == null ? m.group(0)! : String.fromCharCode(code);
+    });
+    out = out.replaceAllMapped(RegExp(r'&#x([0-9a-fA-F]+);'), (m) {
+      final code = int.tryParse(m.group(1)!, radix: 16);
+      return code == null ? m.group(0)! : String.fromCharCode(code);
+    });
+    return out;
+  }
+
   String stripHtml(String html) {
     var text = html
         .replaceAll(
@@ -198,16 +322,8 @@ class BookParser {
         .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n')
         .replaceAll(RegExp(r'</div>', caseSensitive: false), '\n')
         .replaceAll(RegExp(r'<p[^>]*>', caseSensitive: false), '')
-        .replaceAll(RegExp(r'<[^>]+>'), '')
-        .replaceAll('&nbsp;', ' ')
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .replaceAll('&amp;', '&')
-        .replaceAll('&quot;', '"');
-    text = text.replaceAllMapped(RegExp(r'&#(\d+);'), (m) {
-      final code = int.tryParse(m.group(1)!);
-      return code == null ? m.group(0)! : String.fromCharCode(code);
-    });
+        .replaceAll(RegExp(r'<[^>]+>'), '');
+    text = decodeEntities(text);
     return text.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
   }
 }
