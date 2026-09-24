@@ -43,6 +43,24 @@ assets/
 tts_server/    FastAPI + edge-tts
 ```
 
+## Android APK
+
+GitHub Actions builds a release APK on every push to `main` (and on **Actions → CI → Run workflow**).
+
+1. Open https://github.com/ayami22/koe-reader/actions
+2. Open the latest **CI** run
+3. Download artifact **koe-reader-apk** (`app-release.apk`)
+4. Install on the phone (allow unknown sources)
+
+TTS on a phone is not `127.0.0.1`. On the PC:
+
+```powershell
+cd D:\KoeReader\koe_reader\tts_server
+python -m uvicorn app:app --host 0.0.0.0 --port 50000
+```
+
+Then in the app **設定**, set the URL to `http://<PC-LAN-IP>:50000`.
+
 ## Tests
 
 ```powershell

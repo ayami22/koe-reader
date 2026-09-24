@@ -21,6 +21,8 @@ flutter test
 
 TTS: `cd D:\KoeReader\koe_reader\tts_server && python -m uvicorn app:app --host 127.0.0.1 --port 50000`
 
+Android APK: GitHub Actions job in `.github/workflows/ci.yml` (`flutter build apk --release`, artifact `koe-reader-apk`).
+
 ## Decisions
 
 - TTS: CosyVoice if importable, else edge-tts (ja-JP Neural).
