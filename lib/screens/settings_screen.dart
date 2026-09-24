@@ -14,7 +14,7 @@ class SettingsScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('設定')),
       body: ListView(
         children: [
-          _SectionHeader(title: '表示設定'),
+          const _SectionHeader(title: '表示設定'),
           _ThemeTile(settings: settings),
           _SliderTile(
             title: 'フォントサイズ',
@@ -41,7 +41,7 @@ class SettingsScreen extends StatelessWidget {
             onChanged: (v) => settings.setShowFurigana(v),
           ),
           const Divider(),
-          _SectionHeader(title: '音声設定'),
+          const _SectionHeader(title: '音声設定'),
           ListTile(
             title: const Text('CosyVoice サーバー'),
             subtitle: Text(settings.cosyVoiceUrl),
@@ -66,7 +66,7 @@ class SettingsScreen extends StatelessWidget {
             onTap: () => _testConnection(context),
           ),
           const Divider(),
-          _SectionHeader(title: '音声プロファイル'),
+          const _SectionHeader(title: '音声プロファイル'),
           ListTile(
             leading: const Icon(Icons.record_voice_over),
             title: const Text('音声を管理'),

@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:epubx/epubx.dart';
-import '../models/book.dart';
 import '../models/chapter.dart';
 
 class BookParser {

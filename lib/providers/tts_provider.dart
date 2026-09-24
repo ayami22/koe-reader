@@ -71,7 +71,6 @@ class TtsProvider extends ChangeNotifier {
 
   void _onSentenceComplete() {
     _isPlaying = false;
-    final prevIndex = _playingSentenceIndex;
     _playingSentenceIndex = -1;
     notifyListeners();
     _onSentenceFinished?.call();

@@ -4,7 +4,7 @@ import 'package:koe_reader/models/voice_profile.dart';
 void main() {
   group('VoiceProfile', () {
     test('creates from map and converts back', () {
-      final profile = VoiceProfile(
+      const profile = VoiceProfile(
         id: 'test-1',
         name: 'テスト音声',
         speakerId: 'speaker_01',
@@ -23,7 +23,7 @@ void main() {
     });
 
     test('copyWith overrides specified fields only', () {
-      final original = VoiceProfile(
+      const original = VoiceProfile(
         id: 'v1',
         name: 'Original',
         speed: 1.0,

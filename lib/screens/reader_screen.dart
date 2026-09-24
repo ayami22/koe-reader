@@ -64,7 +64,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   void _scrollToSentence(int index) {
-    final itemHeight = 60.0;
+    const itemHeight = 60.0;
     final targetOffset = index * itemHeight;
     if (_scrollController.hasClients) {
       _scrollController.animateTo(

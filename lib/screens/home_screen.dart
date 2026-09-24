@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/library_provider.dart';
-import '../providers/settings_provider.dart';
 import '../models/book.dart';
 import 'reader_screen.dart';
 import 'settings_screen.dart';
